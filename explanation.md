@@ -46,3 +46,4 @@ Imagine the project like a restaurant:
 
 ## 🎯 Why is this cool?
 Because it's **Trustless**. You don't have to trust a company to pay you. The code (Smart Contract) is the law, and it pays you automatically as long as the Oracle provides the correct score!
+--
