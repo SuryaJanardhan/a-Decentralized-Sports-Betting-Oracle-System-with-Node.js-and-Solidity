@@ -1,0 +1,377 @@
+Objective
+Build a full-stack decentralized application featuring a custom oracle system. You will create an off-chain Node.js service to fetch real-world sports data, a suite of Solidity smart contracts to manage data and betting markets, and a React frontend for user interaction. You'll learn to solve the blockchain oracle problem, integrate external APIs with smart contracts securely, and build event-driven financial applications on the blockchain. This project is vital for understanding how real-world data powers decentralized finance (DeFi) and other on-chain applications.
+
+Description
+Background
+In the blockchain ecosystem, smart contracts are powerful, self-executing programs. However, they operate in a deterministic, isolated environment and cannot natively access data from the outside world, such as sports scores, weather information, or financial asset prices. This limitation is known as the "Oracle Problem." Oracles are services that bridge this gap by fetching external data, verifying it, and delivering it onto the blockchain for smart contracts to use.
+
+This project simulates a common use case for oracles: a sports betting platform. You will build a complete system consisting of three main components: an off-chain oracle service, on-chain smart contracts, and a web-based frontend. The oracle service will run on a traditional server (locally in this case), pull player statistics from a public sports API, and submit this data to your smart contract. The smart contract acts as the on-chain source of truth, holding the data and the logic for betting markets. Users will interact with a React DApp to place bets, and the system will automatically settle them once the oracle finalizes the match results. This architecture demonstrates a production-ready pattern for building hybrid smart contract applications that combine the power of off-chain computation with the security and trustlessness of the blockchain.
+
+Implementation Details
+This project is divided into three main parts: the blockchain smart contracts, the off-chain oracle service, and the frontend web application. You will use a containerized setup with Docker to manage these services.
+
+Step 1: Project Structure
+Organize your project repository with a clear separation of concerns:
+
+# Root of your project
+sports-betting-oracle/
+├── blockchain/         # Hardhat project for smart contracts
+│   ├── contracts/
+│   ├── scripts/
+│   ├── test/
+│   └── hardhat.config.js
+├── oracle-service/     # Node.js/Express backend for the oracle
+│   ├── src/
+│   ├── Dockerfile
+│   └── .env.example
+├── frontend/           # React/Vite project for the UI
+│   ├── src/
+│   └── Dockerfile
+├── docker-compose.yml
+└── README.md
+Step 2: Smart Contract Development (blockchain/)
+You will create two primary contracts: SportsOracle.sol and BettingMarket.sol. Use the Hardhat framework for development, testing, and deployment.
+
+SportsOracle.sol: This contract is responsible for storing data submitted by your trusted oracle. It should use an access control pattern like OpenZeppelin's Ownable to ensure only your oracle's address can submit or finalize data.
+
+BettingMarket.sol: This contract contains the logic for users to place and settle bets. It will reference the SportsOracle contract to verify match outcomes. Below is a basic template to get started:
+
+// blockchain/contracts/BettingMarket.sol
+pragma solidity ^0.8.9;
+
+import "./SportsOracle.sol";
+
+contract BettingMarket {
+    ISportsOracle public oracle;
+
+    // Constructor to link the oracle contract
+    constructor(address oracleAddress) {
+        oracle = ISportsOracle(oracleAddress);
+    }
+
+    // Further implementation for bet placement and settlement...
+}
+Step 3: Oracle Service Development (oracle-service/)
+This is a Node.js application that fetches data from a sports API (e.g., TheSportsDB) and interacts with your smart contracts using ethers.js. It should be configurable via environment variables.
+
+Create a .env.example file in the oracle-service directory as specified in requirement env-config:
+
+# The private key of the wallet that will act as the oracle
+# IMPORTANT: This must be a dedicated, separate wallet funded with testnet ETH
+ORACLE_PRIVATE_KEY=
+
+# RPC URL for connecting to the blockchain (e.g., your local Hardhat node)
+RPC_URL=http://hardhat:8545
+
+# Deployed address of the SportsOracle contract
+ORACLE_CONTRACT_ADDRESS=
+The service should expose a simple API to manually trigger updates for testing purposes, as defined in requirements oracle-service-api-trigger-update and oracle-service-api-trigger-finalize.
+
+Step 4: Frontend Development (frontend/)
+Build a React application using Vite. Use ethers.js to connect to the user's wallet (e.g., MetaMask), read data from the smart contracts, and send transactions to place bets. The UI should allow users to browse markets, place bets, and settle their completed bets.
+
+Step 5: Containerization
+Create a docker-compose.yml file at the project root to orchestrate all three services: the Hardhat local node, the oracle service, and the frontend. Ensure services have health checks and dependencies correctly configured as per requirement docker-compose-setup.
+
+# docker-compose.yml template
+version: '3.8'
+
+services:
+  hardhat:
+    build: ./blockchain
+    ports:
+      - "8545:8545"
+    # A simple healthcheck for the RPC server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  oracle:
+    build: ./oracle-service
+    env_file:
+      - ./oracle-service/.env
+    ports:
+      - "3001:3001"
+    depends_on:
+      hardhat:
+        condition: service_healthy
+    # Healthcheck to see if the oracle API is running
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - oracle
+Step 6: Submission Artifacts Checklist
+Your final submission must include the following artifacts in your Git repository:
+
+ README.md: A comprehensive guide to your project, including architecture, setup, and usage.
+ docker-compose.yml: A fully functional Docker Compose file to run the entire application stack.
+ blockchain/: Directory containing all smart contract code, deployment scripts, and tests.
+ oracle-service/: Directory containing the Node.js oracle service, including a Dockerfile and .env.example.
+ frontend/: Directory containing the React frontend application, including a Dockerfile.
+ An architecture diagram (e.g., architecture.png) explaining the data flow between components.
+Implementation Guidelines
+These are advisory guidelines to help you build a more robust and production-ready system.
+
+Security: The oracle's private key is a critical secret. While using a .env file is acceptable for this project, in a production environment, you should use a dedicated secrets management service (like AWS Secrets Manager or HashiCorp Vault) to protect it. Never commit your .env file to version control.
+
+Error Handling: Your oracle service must be resilient to API failures. Implement retry logic with exponential backoff for API requests. Log all errors and transaction failures for easier debugging. Consider what should happen if a sports API returns invalid or unexpected data.
+
+Data Integrity: For this project, a single oracle with an Ownable contract is sufficient. In a real-world DeFi protocol, you would want to avoid a single point of failure. Consider how you might extend this system to use multiple oracles and aggregate their data on-chain to increase trust and reliability.
+
+Gas Optimization: Smart contract transactions cost gas. When the oracle submits data, it should be as efficient as possible. Structure your data and functions to minimize storage writes, which are the most expensive operations. For example, packing multiple data points into a single struct can be more efficient than storing them as individual variables.
+
+Event-Driven Frontend: Your frontend should listen for smart contract events (e.g., DataFinalized, BetSettled). This allows the UI to update in real-time without requiring users to manually refresh the page, providing a much better user experience.
+
+FAQ
+Q: Which sports API should I use?
+
+A: We recommend starting with TheSportsDB API, as it's free and does not require an API key. This simplifies setup and allows you to focus on the core logic. You are free to use others, but be mindful of rate limits on free tiers.
+Q: How can the betting contract trust the oracle contract?
+
+A: The trust is established at deployment. The BettingMarket contract's constructor is given the address of the SportsOracle contract (see requirement contract-deployment). It will only read data from that specific address.
+Q: What happens if the oracle submits wrong data?
+
+A: In this single-oracle model, that is the primary trust assumption. The system is only as trustworthy as the oracle operator. This is why decentralized oracle networks (like Chainlink) are popular in production. Your design should acknowledge this limitation.
+Q: How do I test the oracle's interaction with the smart contract without waiting for a real game?
+
+A: Your oracle service must expose manual trigger endpoints (see oracle-service-api-trigger-update and oracle-service-api-trigger-finalize). This allows you to simulate a game's conclusion by pushing data on-demand during testing.
+Q: Do I need to deploy to a public testnet?
+
+A: While final deployment to a testnet like Sepolia is a great way to showcase your work, all core requirements can be fulfilled and verified using a local Hardhat network. The docker-compose.yml setup is designed for local evaluation.
+Q: How does the oracle prove the data is authentic?
+
+A: In this architecture, authenticity is enforced by access control via the onlyOracle modifier on the SportsOracle contract (contract-oracle-access-control). Only the address that deployed the contract (or the one it designates) can write data. In more advanced systems, the oracle would cryptographically sign the data off-chain, and the smart contract would verify the signature on-chain.
+Core Requirements
+1.
+The project must be fully containerized using Docker and Docker Compose. A docker-compose.yml file must be present at the root of the repository.
+
+Contract Specification:
+
+File Location: docker-compose.yml
+Required Services:
+hardhat: Runs a local Hardhat blockchain node.
+oracle: Runs the off-chain Node.js oracle service.
+frontend: Runs the React web application.
+Service Requirements:
+All services must have a build context pointing to their respective directories.
+The oracle service must depend on the hardhat service being healthy (depends_on).
+All services must define a healthcheck to allow for programmatic verification of their status. For example, hardhat can be checked via an HTTP request to its RPC port, and oracle/frontend can be checked via a request to a health endpoint or the main page.
+Verification:
+
+The docker-compose.yml file will be parsed to ensure all three services (hardhat, oracle, frontend) are defined.
+The depends_on and healthcheck configurations will be checked for correctness.
+The command docker-compose up --build -d will be executed, and all services must report a healthy state within 3 minutes.
+2.
+The oracle service must be configurable via environment variables. An example file must be provided.
+
+Contract Specification:
+
+File Location: oracle-service/.env.example
+Required Variables:
+ORACLE_PRIVATE_KEY: Placeholder for the oracle wallet's private key.
+RPC_URL: The JSON-RPC endpoint for the blockchain network.
+ORACLE_CONTRACT_ADDRESS: Placeholder for the deployed SportsOracle contract address.
+Verification:
+
+The file oracle-service/.env.example will be checked for existence.
+The file content will be parsed to ensure it contains the keys ORACLE_PRIVATE_KEY, RPC_URL, and ORACLE_CONTRACT_ADDRESS.
+3.
+The SportsOracle.sol smart contract must be correctly implemented with the specified state variables, data structures, events, and access control.
+
+Contract Specification:
+
+File Location: blockchain/contracts/SportsOracle.sol
+Required Features:
+A public state variable oracleAddress of type address.
+A PlayerPerformance struct containing at least uint256 pointsScored and bool finalized.
+A mapping performances from a match ID (uint256) to another mapping from a player ID (uint256) to a PlayerPerformance struct.
+An event DataSubmitted(uint256 indexed matchId, uint256 indexed playerId).
+An event DataFinalized(uint256 indexed matchId, uint256 indexed playerId).
+A modifier onlyOracle that requires msg.sender == oracleAddress.
+Verification:
+
+The contract's ABI will be inspected to confirm the presence and types of the specified state variables, structs, events, and modifier logic.
+4.
+The SportsOracle contract must have a function to allow the oracle to submit player performance data.
+
+Contract Specification:
+
+Function Signature: function submitPlayerData(uint256 matchId, uint256 playerId, uint256 pointsScored) external
+Behavior:
+Must only be callable by the oracleAddress (enforced by onlyOracle modifier).
+Must not be callable if the performance data for that matchId and playerId is already finalized.
+Must update the performances mapping with the provided data.
+Must emit a DataSubmitted event upon successful execution.
+Verification:
+
+A transaction will be sent to submitPlayerData from the designated oracle address. The DataSubmitted event will be checked, and the state change in the performances mapping will be verified by a contract call.
+5.
+The SportsOracle contract must have a function to allow the oracle to finalize match data, preventing further updates.
+
+Contract Specification:
+
+Function Signature: function finalizeMatch(uint256 matchId, uint256 playerId) external
+Behavior:
+Must only be callable by the oracleAddress.
+Must set the finalized flag to true for the specified matchId and playerId in the performances mapping.
+Must emit a DataFinalized event.
+Verification:
+
+After submitting data, a transaction will be sent to finalizeMatch. The DataFinalized event will be checked, and the finalized flag will be verified via a contract call.
+6.
+Access to critical functions in SportsOracle must be restricted to the oracle address.
+
+Contract Specification:
+
+Functions to Protect: submitPlayerData, finalizeMatch
+Mechanism: The onlyOracle modifier must be applied to these functions.
+Verification:
+
+An attempt will be made to call submitPlayerData from an account that is NOT the oracleAddress.
+The transaction must revert with an appropriate error message (e.g., "Only oracle can call").
+7.
+The BettingMarket.sol contract must be implemented with a way to store bets and a link to the oracle contract.
+
+Contract Specification:
+
+File Location: blockchain/contracts/BettingMarket.sol
+Required Features:
+A public state variable oracle of type ISportsOracle (or the concrete contract type).
+A Bet struct containing at least address bettor, uint256 amount, bool settled, and the bet's parameters (e.g., matchId, playerId).
+A mapping or array to store all placed bets.
+A constructor that accepts the address of the SportsOracle contract and sets the oracle state variable.
+Verification:
+
+The contract's ABI will be inspected to confirm the oracle variable, the Bet struct, and the constructor signature.
+8.
+The BettingMarket contract must allow users to place bets by sending Ether.
+
+Contract Specification:
+
+Function Signature: function placeBet(uint256 matchId, uint256 playerId, uint256 predictedValue) external payable
+Behavior:
+Must require msg.value to be greater than 0.
+Must revert if the corresponding match in the oracle contract is already finalized.
+Must create a new Bet struct with the sender's address, bet amount, and parameters, and store it.
+Verification:
+
+A transaction with a non-zero ETH value will be sent to placeBet.
+The contract's internal state will be queried to verify that a new bet has been successfully recorded.
+9.
+The BettingMarket contract must allow for the settlement of a bet after a match is finalized, paying out to winners.
+
+Contract Specification:
+
+Function Signature: function settleBet(uint256 betId) external
+Behavior:
+Must revert if the bet is already settled.
+Must revert if the match is not yet finalized in the oracle contract.
+Must fetch the actual player performance from the oracle contract.
+Must determine if the bet was won. For an over/under bet, this means actualPoints > predictedValue.
+If the bet was won, it must transfer a payout (e.g., 2x the original amount) to the bettor.
+Must mark the bet as settled.
+Verification:
+
+A match will be finalized via the oracle. A call to settleBet will be made for a winning bet.
+The bettor's ETH balance change will be checked to confirm the payout was received. The bet's settled status will be verified.
+10.
+There must be an automated script to deploy the smart contracts.
+
+Contract Specification:
+
+File Location: blockchain/scripts/deploy.js (or similar)
+Behavior:
+When executed with npx hardhat run, the script must deploy SportsOracle.sol first.
+Then, it must deploy BettingMarket.sol, passing the newly deployed SportsOracle address to its constructor.
+The script should log the addresses of both deployed contracts.
+Verification:
+
+The deployment script will be executed on a local Hardhat node.
+The deployed BettingMarket contract's oracle address will be queried and must match the deployed SportsOracle contract's address.
+11.
+The smart contracts must have a comprehensive test suite.
+
+Contract Specification:
+
+Test Location: blockchain/test/
+Execution: The command npm test (or equivalent) in the blockchain directory must execute the test suite using Hardhat.
+Coverage: The test suite must achieve at least 70% line coverage for all contracts.
+Verification:
+
+The test command will be executed.
+A coverage report will be generated and checked to ensure the 70% threshold is met.
+12.
+The oracle service must expose a manual API endpoint to trigger a data submission to the blockchain for testing.
+
+Contract Specification:
+
+Endpoint: POST /api/trigger-update
+Request Body:
+{
+  "matchId": 1,
+  "playerId": 101,
+  "pointsScored": 25
+}
+Behavior:
+On receiving this request, the oracle service must call the submitPlayerData function on the SportsOracle smart contract with the provided data.
+It should return a 200 OK response with the transaction hash.
+Verification:
+
+The endpoint will be called with test data.
+The state of the SportsOracle contract will be queried to confirm that the performances mapping was updated accordingly.
+13.
+The oracle service must expose a manual API endpoint to trigger match finalization.
+
+Contract Specification:
+
+Endpoint: POST /api/trigger-finalize
+Request Body:
+{
+  "matchId": 1,
+  "playerId": 101
+}
+Behavior:
+On receiving this request, the oracle service must call the finalizeMatch function on the SportsOracle smart contract.
+It should return a 200 OK response with the transaction hash.
+Verification:
+
+After submitting data via the update trigger, this endpoint will be called.
+The state of the SportsOracle contract will be queried to confirm that the finalized flag for the given match/player is now true.
+14.
+The frontend application must provide a mechanism for users to connect their Web3 wallet.
+
+Contract Specification:
+
+Element: A button or clickable element must exist with the attribute data-test-id="connect-wallet-button".
+Behavior: When clicked, this element should trigger the browser's wallet provider (e.g., MetaMask) to prompt the user for connection. After a successful connection, the user's address should be displayed somewhere on the page, for instance, in an element with data-test-id="user-address".
+Verification:
+
+A testing tool (like Playwright) will locate the element by its data-test-id.
+The tool will simulate a click and verify that after a successful mock connection, the user's address is rendered on the page.
+15.
+The frontend must allow a connected user to place a bet on a player's performance.
+
+Contract Specification:
+
+Element: For each available betting market, a button must exist with an attribute like data-test-id="place-bet-button-{matchId}-{playerId}".
+Behavior: Clicking this button should trigger a transaction to the placeBet function of the BettingMarket smart contract, sending the appropriate parameters and an amount of ETH.
+Verification:
+
+A testing tool will connect a wallet, find a specific 'place bet' button, and simulate a click.
+The tool will monitor the underlying blockchain node for an incoming transaction to the placeBet function and verify its parameters.
+
+Submission Instructions
+Submit a link to your public GitHub repository containing all the project code. The repository must be fully self-contained. For evaluation, your project must be runnable with a single docker-compose up command. Ensure your submission includes a docker-compose.yml file, all necessary Dockerfiles, and an .env.example file for the oracle service, as this is a difficulty 4 task. Your README.md file should provide clear instructions on how to set up and run the project locally. Do not include your .env file or any real private keys in the repository.
+
+Evaluation Overview
+Your submission will be evaluated based on functionality, code quality, and adherence to best practices. The core requirements will be programmatically tested by an automated evaluation system that interacts with your deployed contracts, oracle service API, and frontend application. This includes running your Docker Compose setup, calling API endpoints, sending transactions, and checking on-chain state. Additionally, your codebase will undergo automated code analysis to assess its structure, readability, and security. Please ensure your README.md is comprehensive and your project is easily runnable with docker-compose up.
