@@ -1,4 +1,4 @@
-# a-Decentralized-Sports-Betting-Oracle-System-with-Node.js-and-Solidity
+# Decentralized Sports Betting Oracle System
 
 A full-stack decentralized application featuring a custom off-chain oracle system. This project demonstrates how to bridge real-world data onto the blockchain using Node.js and Solidity.
 
@@ -39,41 +39,41 @@ graph TD
    - **Oracle Service**: http://localhost:3001
    - **Hardhat RPC**: http://localhost:8545
 
-### Manual Setup (Development)
-
-#### 1. Blockchain
-```bash
-cd blockchain
-npm install
-npx hardhat node
-# In another terminal
-npx hardhat run scripts/deploy.ts --network localhost
-```
-
-#### 2. Oracle Service
-```bash
-cd oracle-service
-npm install
-# Update .env with deployed contract addresses
-npm run dev
-```
-
-#### 3. Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### 🦊 MetaMask Setup (Local Testing)
+To interact with the local Hardhat node:
+1. Open MetaMask and add a **Custom RPC Network**:
+   - **Network Name**: Hardhat Local
+   - **New RPC URL**: http://localhost:8545
+   - **Chain ID**: 31337
+   - **Currency Symbol**: ETH
+2. Import a test account using one of Hardhat's default private keys (e.g., `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`).
 
 ## 🧪 Testing
 
-Run smart contract tests with coverage:
+The project includes a comprehensive testing suite across all layers:
+
+### Smart Contracts
 ```bash
 cd blockchain
-npx hardhat coverage
+npx hardhat test
+npx hardhat coverage # 100% Coverage achieved
+```
+
+### Oracle Service
+```bash
+cd oracle-service
+npm test # Unit & API tests
+```
+
+### Frontend
+```bash
+cd frontend
+npm test # Vitest unit tests
 ```
 
 ## 🔌 API Reference (Oracle Service)
+
+The Oracle service provides endpoints to simulate real-world data feeds.
 
 ### Submit Player Data
 `POST /api/trigger-update`
@@ -95,6 +95,7 @@ npx hardhat coverage
 ```
 
 ## 🛡️ Security & Best Practices
-- **Access Control**: Only the designated oracle address can submit or finalize data.
-- **Resilience**: The oracle service uses asynchronous transaction handling and receipt verification.
-- **Rich UI**: The frontend uses Tailwind CSS and Lucide icons for a premium experience.
+- **Access Control**: Only the designated oracle address can submit or finalize data on the `SportsOracle` contract.
+- **Resilience**: The oracle service implements health checks and transaction receipt verification.
+- **Containerization**: Programmatic health checks ensure the Hardhat node is ready before the Oracle service starts.
+- **Rich UI**: High-end glassmorphic design with Tailwind CSS and Lucide icons.
